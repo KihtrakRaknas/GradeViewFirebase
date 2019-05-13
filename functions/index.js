@@ -1,7 +1,7 @@
 const admin = require('firebase-admin');
 const functions = require('firebase-functions');
 const {PubSub} = require('@google-cloud/pubsub');
-
+const { Expo } = require('expo-server-sdk')
 
 admin.initializeApp(functions.config().firebase);
 
@@ -13,6 +13,7 @@ const puppeteer = require('puppeteer');
 const $ = require('cheerio');
 const bodyParser = require('body-parser');
 
+let expo = new Expo();
 
 //console.log(getData('10012734@sbstudents.org','Sled%2#9'));
 
@@ -37,6 +38,52 @@ app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 
 var currentUsers=[];
  
+app.get('/test', async (req, res) => {
+  var testTokens = ["ExponentPushToken[0xjpWiMqJBvOJUTi1iTSsw]"];
+  let messages = [];
+  for (let pushToken of testTokens) {
+    // Each push token looks like ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
+
+    // Check that all your push tokens appear to be valid Expo push tokens
+    if (!Expo.isExpoPushToken(pushToken)) {
+      console.error(`Push token ${pushToken} is not a valid Expo push token`);
+      continue;
+    }
+
+    // Construct a message (see https://docs.expo.io/versions/latest/guides/push-notifications.html)
+    messages.push({
+      to: pushToken,
+      sound: 'default',
+      body: 'This is a test notification',
+      data: { withSome: 'data' },
+    })
+  }
+
+  // The Expo push notification service accepts batches of notifications so
+  // that you don't need to send 1000 requests to send 1000 notifications. We
+  // recommend you batch your notifications to reduce the number of requests
+  // and to compress them (notifications with similar content will get
+  // compressed).
+  let chunks = expo.chunkPushNotifications(messages);
+  (async () => {
+    // Send the chunks to the Expo push notification service. There are
+    // different strategies you could use. A simple one is to send one chunk at a
+    // time, which nicely spreads the load out over time:
+    for (let chunk of chunks) {
+      try {
+        let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+        console.log(ticketChunk);
+        // NOTE: If a ticket contains an error code in ticket.details.error, you
+        // must handle it appropriately. The error codes are listed in the Expo
+        // documentation:
+        // https://docs.expo.io/versions/latest/guides/push-notifications#response-format
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  })();
+});
+
 app.get('/', async (req, res) => {
 	//res.json({get:"gotten"})
   const username = req.query.username;//'10012734'
@@ -563,3 +610,4 @@ exports.gradeChanged = functions.firestore
       });
       return result;
   }
+
