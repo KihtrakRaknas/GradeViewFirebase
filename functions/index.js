@@ -39,49 +39,8 @@ app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 var currentUsers=[];
  
 app.get('/test', async (req, res) => {
-  var testTokens = ["ExponentPushToken[0xjpWiMqJBvOJUTi1iTSsw]"];
-  let messages = [];
-  for (let pushToken of testTokens) {
-    // Each push token looks like ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
-
-    // Check that all your push tokens appear to be valid Expo push tokens
-    if (!Expo.isExpoPushToken(pushToken)) {
-      console.error(`Push token ${pushToken} is not a valid Expo push token`);
-      continue;
-    }
-
-    // Construct a message (see https://docs.expo.io/versions/latest/guides/push-notifications.html)
-    messages.push({
-      to: pushToken,
-      sound: 'default',
-      body: 'This is a test notification',
-      data: { withSome: 'data' },
-    })
-  }
-
-  // The Expo push notification service accepts batches of notifications so
-  // that you don't need to send 1000 requests to send 1000 notifications. We
-  // recommend you batch your notifications to reduce the number of requests
-  // and to compress them (notifications with similar content will get
-  // compressed).
-  let chunks = expo.chunkPushNotifications(messages);
-  (async () => {
-    // Send the chunks to the Expo push notification service. There are
-    // different strategies you could use. A simple one is to send one chunk at a
-    // time, which nicely spreads the load out over time:
-    for (let chunk of chunks) {
-      try {
-        let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-        console.log(ticketChunk);
-        // NOTE: If a ticket contains an error code in ticket.details.error, you
-        // must handle it appropriately. The error codes are listed in the Expo
-        // documentation:
-        // https://docs.expo.io/versions/latest/guides/push-notifications#response-format
-      } catch (error) {
-        console.error(error);
-      }
-    }
-  })();
+  notify(["ExponentPushToken[0xjpWiMqJBvOJUTi1iTSsw]"],"Hi","This is a message from","Karthik!",{ withSome: 'data' })
+  res.send('Done!');
 });
 
 app.get('/', async (req, res) => {
@@ -521,93 +480,179 @@ const api1 = functions.https.onRequest(app);
 
 module.exports.api1 = api1;
 
+exports.tokenChanged = functions.firestore
+    .document('userData/{userID}')
+    .onWrite((change, context) => {
+      // Identify the new Tokens
+      const document = change.after.exists ? change.after.data() : null;
+      const oldDocument = change.before.data();
+      var newTokens = []
+      if(document["Tokens"]){
+        newTokens=document["Tokens"];
+        if(oldDocument["Tokens"]){
+          newTokens = newTokens.filter(function(i) {return oldDocument["Tokens"].indexOf(i) < 0;});
+        }
+        //Check if token is being used by another account
+        for(var token of newTokens){
+          var tokenReverseIndexRef = db.collection('tokenReverseIndex').doc(token);
+          tokenReverseIndexRef.get().then(doc => {
+            if (doc.exists) {
+              var userDataRef = db.collection('userData').doc(doc.data()["username"]);
+              userDataRef.update({
+                regions: admin.firestore.FieldValue.arrayRemove('east_coast')
+              });
+            }
+            //Update reverse index
+            tokenReverseIndexRef.set({
+              username: context.params.userID
+            });
+          });
+        }
+      }
+    });
+
 exports.gradeChanged = functions.firestore
     .document('users/{userID}')
     .onWrite((change, context) => {
-      // Get an object with the current document value.
-      // If the document does not exist, it has been deleted.
-      const document = change.after.exists ? change.after.data() : null;
+      //Check if user wants notifications
+      var userDataRef = db.collection('userData').doc(context.params.userID);
+      userDataRef.get().then(doc => {
+        if (doc.exists) {
+          if(doc.data()["Tokens"]&&doc.data()["Tokens"].length>0){
+            var targetTokens = doc.data()["Tokens"]
 
-      // Get an object with the previous document value (for update or delete)
-      const oldDocument = change.before.data();
+            //search for changes
 
-      for(classs in document){
-        for(mp in document[classs]){
-          if(document[classs][mp]){
-            if(oldDocument[classs][mp]["avg"]&&document[classs][mp]["avg"]){
-              var oldAvg = oldDocument[classs][mp]["avg"].substring(0,oldDocument[classs][mp]["avg"].length-1);
-              var newAvg = document[classs][mp]["avg"].substring(0,document[classs][mp]["avg"].length-1);
-              if(Number(oldAvg)&&Number(newAvg)){
-                if(Number(oldAvg) > Number(newAvg)){
-                  console.log("Your grade for "+classs+" when down to a "+document[classs][mp]["avg"])
-                }else if(Number(oldAvg) < Number(newAvg)){
-                  console.log("Your grade for "+classs+" when up to a "+document[classs][mp]["avg"])
-                }else{
-                  //No change
-                }
-              }
-            }
-            if(document[classs][mp]["Assignments"]&&oldDocument[classs][mp]["Assignments"]){
-              for(var assignment of document[classs][mp]["Assignments"]){
-                var found = false;
-                for(var assignment2 of oldDocument[classs][mp]["Assignments"]){
-                  if(assignment["Name"]==assignment2["Name"]&&assignment["Date"]==assignment2["Date"]){
-                    //Assignment found
-                    var fractionParts1 = assignment["Grade"].split("/").map(x => parseFloat(x))
-                    var fractionParts2 = assignment2["Grade"].split("/").map(x => parseFloat(x))
-                    if(fractionParts1[0]&&fractionParts1[1]){
-                      var scoreCalc1 = fractionParts1[0]/fractionParts1[1];
-                      if(fractionParts2[0]&&fractionParts2[1]){
-                        var scoreCalc2 = fractionParts2[0]/fractionParts2[1];
-                        if(scoreCalc1>scoreCalc2){
-                          //up
-                          console.log("Your grade for "+assignment["Name"]+" in "+classs+" went up!"+"\nYour score: "+assignment["Grade"])
-                        }else if(scoreCalc1<scoreCalc2){
-                          //down
-                          console.log("Your grade for "+assignment["Name"]+" in "+classs+" went down"+"\nYour score: "+assignment["Grade"])
-                        }   
+            // Get an object with the current document value.
+            // If the document does not exist, it has been deleted.
+            const document = change.after.exists ? change.after.data() : null;
+
+            // Get an object with the previous document value (for update or delete)
+            const oldDocument = change.before.data();
+
+            for(classs in document){
+              for(mp in document[classs]){
+                if(document[classs][mp]){
+                  if(oldDocument[classs][mp]["avg"]&&document[classs][mp]["avg"]){
+                    var oldAvg = oldDocument[classs][mp]["avg"].substring(0,oldDocument[classs][mp]["avg"].length-1);
+                    var newAvg = document[classs][mp]["avg"].substring(0,document[classs][mp]["avg"].length-1);
+                    if(Number(oldAvg)&&Number(newAvg)){
+                      if(Number(oldAvg) > Number(newAvg)){
+                        notify(targetTokens,classs,"Average dropped to "+document[classs][mp]["avg"],"Your average for "+classs+" when down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{});
+                        console.log("Your average for "+classs+" when down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
+                      }else if(Number(oldAvg) < Number(newAvg)){
+                        notify(targetTokens,classs,"Average jumped to "+document[classs][mp]["avg"],"Your average for "+classs+" when up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{});
+                        console.log("Your average for "+classs+" when up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
                       }else{
-                        console.log(classs+" has posted the grade for"+assignment["Name"]+"\nYour score: "+assignment["Grade"])                        
+                        //No change
                       }
                     }
-                    
-                    found = true;
-                    break;
                   }
-                }
-                if(!found){
-                  if(assignment["Grade"])
-                    console.log(classs+" has posted a new assignment"+assignment["Name"]+"\nYour score: "+assignment["Grade"])
+                  if(document[classs][mp]["Assignments"]&&oldDocument[classs][mp]["Assignments"]){
+                    for(var assignment of document[classs][mp]["Assignments"]){
+                      var found = false;
+                      for(var indexOfAssign2 in oldDocument[classs][mp]["Assignments"]){
+                        assignment2 = oldDocument[classs][mp]["Assignments"][indexOfAssign2]
+                        if(assignment["Name"]==assignment2["Name"]&&assignment["Date"]==assignment2["Date"]){
+                          //Delete assignement from list of old assignments to make finding next match faster
+                          oldDocument[classs][mp]["Assignments"].splice(indexOfAssign2, 1);
+
+                          var fractionParts1 = assignment["Grade"].split("/").map(x => parseFloat(x))
+                          var fractionParts2 = assignment2["Grade"].split("/").map(x => parseFloat(x))
+                          if(fractionParts1[0]&&fractionParts1[1]){
+                            var scoreCalc1 = fractionParts1[0]/fractionParts1[1];
+                            if(fractionParts2[0]&&fractionParts2[1]){
+                              var scoreCalc2 = fractionParts2[0]/fractionParts2[1];
+                              if(scoreCalc1>scoreCalc2){
+                                //up
+                                notify(targetTokens,assignment["Name"],"Score increased to "+assignment["Grade"],"Your grade for "+assignment["Name"]+" in "+classs+" went up!"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")",{});
+                                console.log("Your grade for "+assignment["Name"]+" in "+classs+" went up!"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")")
+                              }else if(scoreCalc1<scoreCalc2){
+                                //down
+                                notify(targetTokens,assignment["Name"],"Score decreased to "+assignment["Grade"],"Your grade for "+assignment["Name"]+" in "+classs+" went down"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")",{});
+                                console.log("Your grade for "+assignment["Name"]+" in "+classs+" went down"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")")
+                              }   
+                            }else{
+                              notify(targetTokens,assignment["Name"],assignment["Grade"],classs+" has posted the grade for"+assignment["Name"]+"\nYour score: "+assignment["Grade"],{});
+                              console.log(classs+" has posted the grade for"+assignment["Name"]+"\nYour score: "+assignment["Grade"])                        
+                            }
+                          }
+                          
+                          found = true;
+                          break;
+                        }
+                      }
+                      if(!found){
+                        if(assignment["Grade"]){
+                          notify(targetTokens,assignment["Name"],assignment["Grade"],classs+" has posted a new assignment: "+assignment["Name"]+"\nYour score: "+assignment["Grade"],{});
+                          console.log(classs+" has posted a new assignment: "+assignment["Name"]+"\nYour score: "+assignment["Grade"])
+                        }
+                          
+                      }
+                    }
+                  }
                 }
               }
             }
+            
+          }else{
+            console.log("No tokens")
           }
+        }else{
+          console.log("No doc")
         }
-      }
+        return 0;
+      })
+      .catch(err => {
+        console.log('Error getting document', err);
+      });
 
-      console.log(diff(document,oldDocument));
-      // perform desired operations ...
     });
 
-    function diff(obj1, obj2) {
-      const result = {};
-      if (Object.is(obj1, obj2)) {
-          return undefined;
-      }
-      if (!obj2 || typeof obj2 !== 'object') {
-          return obj2;
-      }
-      Object.keys(obj1 || {}).concat(Object.keys(obj2 || {})).forEach(key => {
-          if(obj2[key] !== obj1[key] && !Object.is(obj1[key], obj2[key])) {
-              result[key] = obj2[key];
-          }
-          if(typeof obj2[key] === 'object' && typeof obj1[key] === 'object') {
-              const value = diff(obj1[key], obj2[key]);
-              if (value !== undefined) {
-                  result[key] = value;
-              }
-          }
-      });
-      return result;
-  }
 
+  function notify(tokens, title, subtitle, body, data){
+    let messages = [];
+    for (let pushToken of tokens) {
+      // Each push token looks like ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
+  
+      // Check that all your push tokens appear to be valid Expo push tokens
+      if (!Expo.isExpoPushToken(pushToken)) {
+        console.error(`Push token ${pushToken} is not a valid Expo push token`);
+        continue;
+      }
+  
+      // Construct a message (see https://docs.expo.io/versions/latest/guides/push-notifications.html)
+      messages.push({
+        to: pushToken,
+        sound: 'default',
+        title: title,
+        subtitle: subtitle,
+        body: body,
+        data: data,
+      })
+    }
+  
+    // The Expo push notification service accepts batches of notifications so
+    // that you don't need to send 1000 requests to send 1000 notifications. We
+    // recommend you batch your notifications to reduce the number of requests
+    // and to compress them (notifications with similar content will get
+    // compressed).
+    let chunks = expo.chunkPushNotifications(messages);
+    (async () => {
+      // Send the chunks to the Expo push notification service. There are
+      // different strategies you could use. A simple one is to send one chunk at a
+      // time, which nicely spreads the load out over time:
+      for (let chunk of chunks) {
+        try {
+          let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+          console.log(ticketChunk);
+          // NOTE: If a ticket contains an error code in ticket.details.error, you
+          // must handle it appropriately. The error codes are listed in the Expo
+          // documentation:
+          // https://docs.expo.io/versions/latest/guides/push-notifications#response-format
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    })();
+  }
