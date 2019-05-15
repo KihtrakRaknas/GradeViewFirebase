@@ -158,15 +158,17 @@ app.get('/', async (req, res) => {
 
   
 
-  module.exports.updateGradesPubSub = functions.pubsub.topic('updateGrades').onPublish((message) => {
+  module.exports.updateGradesPubSub = functions.pubsub.topic('updateGrades').onPublish(async (message) => {
     console.log("SUB PUB CALLED");
-    /*try {
+    try {
       var username = message.json.username;
       var password = message.json.password;
 
-      console.log("Updating cache for future requests")
       
+      var userRef = db.collection('users').doc(username);
+
       var dataObj = await getData(username,password)
+      console.log("Updating cache for future requests")
       if(dataObj["Status"] == "Completed"){
         console.log(dataObj["Status"])
         userRef.set(dataObj);
@@ -176,7 +178,7 @@ app.get('/', async (req, res) => {
 
     } catch (e) {
       console.error('PubSub message was not JSON', e);
-    }*/
+    }
     return 0;
   });
 
