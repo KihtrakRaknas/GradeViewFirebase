@@ -491,7 +491,7 @@ exports.tokenChanged = functions.firestore
       var newTokens = []
       if(document["Tokens"]){
         newTokens=document["Tokens"];
-        if(oldDocument["Tokens"]){
+        if(oldDocument && oldDocument["Tokens"]){
           newTokens = newTokens.filter(function(i) {return oldDocument["Tokens"].indexOf(i) < 0;});
         }
         //Check if token is being used by another account
@@ -513,41 +513,42 @@ exports.tokenChanged = functions.firestore
       }
     });
 
-    exports.scheduledFunctionCrontab = functions.pubsub.schedule('40 10 * * *')
+    exports.updateAllGradesSchedule = functions.pubsub.schedule('5 11 * * *')
     .timeZone('America/New_York') // Users can choose timezone - default is UTC
     .onRun((context) => {
     //console.log(‘This will be run every day at 11:05 AM Eastern!’);
-    db.collection('userData').get()
-    .then(snapshot => {
-      snapshot.forEach(doc => {
-        if (doc.exists) {
-          if(doc.data()["Tokens"]&&doc.data()["Tokens"].length>0&&doc.data()["password"]){
-            console.log(doc.id);
-            var username = doc.id;
-            var password = doc.data()["password"];
-            const data = JSON.stringify({username:username,password:password});
-            const dataBuffer = Buffer.from(data);
-          
-            pubsub
-            .topic("updateGrades")
-            .publish(dataBuffer)
-            .then(messageId => {
-                console.log(`:::::::: Message ${messageId} has now published. :::::::::::`);
-                return true;
-            })
-            .catch(err => {
-                console.error("ERROR:", err);
-                throw err;
-            });
-          }
-        }
-      });
-    })
-    .catch(err => {
-      console.log('Error getting documents', err);
-    });
+      // db.collection('userData').get()
+      // .then(snapshot => {
+      //   snapshot.forEach(doc => {
+      //     if (doc.exists) {
+      //       if(doc.data()["Tokens"]&&doc.data()["Tokens"].length>0&&doc.data()["password"]){
+      //         console.log(doc.id);
+      //         var username = doc.id;
+      //         var password = doc.data()["password"];
+      //         const data = JSON.stringify({username:username,password:password});
+      //         const dataBuffer = Buffer.from(data);
+            
+      //         pubsub
+      //         .topic("updateGrades")
+      //         .publish(dataBuffer)
+      //         .then(messageId => {
+      //             console.log(`:::::::: Message ${messageId} has now published. :::::::::::`);
+      //             return true;
+      //         })
+      //         .catch(err => {
+      //             console.error("ERROR:", err);
+      //             throw err;
+      //         });
+      //       }
+      //     }
+      //   });
+      // })
+      // .catch(err => {
+      //   console.log('Error getting documents', err);
+      // });
 
   });
+
 exports.gradeChanged = functions.firestore
     .document('users/{userID}')
     .onWrite((change, context) => {
@@ -566,72 +567,72 @@ exports.gradeChanged = functions.firestore
 
             // Get an object with the previous document value (for update or delete)
             const oldDocument = change.before.data();
-
-            for(classs in document){
-              for(mp in document[classs]){
-                if(document[classs][mp]){
-                  if(oldDocument[classs][mp]["avg"]&&document[classs][mp]["avg"]){
-                    var oldAvg = oldDocument[classs][mp]["avg"].substring(0,oldDocument[classs][mp]["avg"].length-1);
-                    var newAvg = document[classs][mp]["avg"].substring(0,document[classs][mp]["avg"].length-1);
-                    if(Number(oldAvg)&&Number(newAvg)){
-                      if(Number(oldAvg) > Number(newAvg)){
-                        notify(targetTokens,classs,"Average dropped to "+document[classs][mp]["avg"],"Your average for "+classs+" when down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{});
-                        console.log("Your average for "+classs+" when down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
-                      }else if(Number(oldAvg) < Number(newAvg)){
-                        notify(targetTokens,classs,"Average jumped to "+document[classs][mp]["avg"],"Your average for "+classs+" when up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{});
-                        console.log("Your average for "+classs+" when up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
-                      }else{
-                        //No change
+            if(oldDocument){
+              for(classs in document){
+                for(mp in document[classs]){
+                  if(document[classs][mp]){
+                    if(oldDocument[classs][mp]["avg"]&&document[classs][mp]["avg"]){
+                      var oldAvg = oldDocument[classs][mp]["avg"].substring(0,oldDocument[classs][mp]["avg"].length-1);
+                      var newAvg = document[classs][mp]["avg"].substring(0,document[classs][mp]["avg"].length-1);
+                      if(Number(oldAvg)&&Number(newAvg)){
+                        if(Number(oldAvg) > Number(newAvg)){
+                          notify(targetTokens,classs,"Average dropped to "+document[classs][mp]["avg"],"Your average for "+classs+" when down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{});
+                          console.log("Your average for "+classs+" when down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
+                        }else if(Number(oldAvg) < Number(newAvg)){
+                          notify(targetTokens,classs,"Average jumped to "+document[classs][mp]["avg"],"Your average for "+classs+" when up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{});
+                          console.log("Your average for "+classs+" when up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
+                        }else{
+                          //No change
+                        }
                       }
                     }
-                  }
-                  if(document[classs][mp]["Assignments"]&&oldDocument[classs][mp]["Assignments"]){
-                    for(var assignment of document[classs][mp]["Assignments"]){
-                      var found = false;
-                      for(var indexOfAssign2 in oldDocument[classs][mp]["Assignments"]){
-                        assignment2 = oldDocument[classs][mp]["Assignments"][indexOfAssign2]
-                        if(assignment["Name"]==assignment2["Name"]&&assignment["Date"]==assignment2["Date"]){
-                          //Delete assignement from list of old assignments to make finding next match faster
-                          oldDocument[classs][mp]["Assignments"].splice(indexOfAssign2, 1);
+                    if(document[classs][mp]["Assignments"]&&oldDocument[classs][mp]["Assignments"]){
+                      for(var assignment of document[classs][mp]["Assignments"]){
+                        var found = false;
+                        for(var indexOfAssign2 in oldDocument[classs][mp]["Assignments"]){
+                          assignment2 = oldDocument[classs][mp]["Assignments"][indexOfAssign2]
+                          if(assignment["Name"]==assignment2["Name"]&&assignment["Date"]==assignment2["Date"]){
+                            //Delete assignement from list of old assignments to make finding next match faster
+                            oldDocument[classs][mp]["Assignments"].splice(indexOfAssign2, 1);
 
-                          var fractionParts1 = assignment["Grade"].split("/").map(x => parseFloat(x))
-                          var fractionParts2 = assignment2["Grade"].split("/").map(x => parseFloat(x))
-                          if(fractionParts1[0]&&fractionParts1[1]){
-                            var scoreCalc1 = fractionParts1[0]/fractionParts1[1];
-                            if(fractionParts2[0]&&fractionParts2[1]){
-                              var scoreCalc2 = fractionParts2[0]/fractionParts2[1];
-                              if(scoreCalc1>scoreCalc2){
-                                //up
-                                notify(targetTokens,assignment["Name"],"Score increased to "+assignment["Grade"],"Your grade for "+assignment["Name"]+" in "+classs+" went up!"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")",{});
-                                console.log("Your grade for "+assignment["Name"]+" in "+classs+" went up!"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")")
-                              }else if(scoreCalc1<scoreCalc2){
-                                //down
-                                notify(targetTokens,assignment["Name"],"Score decreased to "+assignment["Grade"],"Your grade for "+assignment["Name"]+" in "+classs+" went down"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")",{});
-                                console.log("Your grade for "+assignment["Name"]+" in "+classs+" went down"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")")
-                              }   
-                            }else{
-                              notify(targetTokens,assignment["Name"],assignment["Grade"],classs+" has posted the grade for"+assignment["Name"]+"\nYour score: "+assignment["Grade"],{});
-                              console.log(classs+" has posted the grade for"+assignment["Name"]+"\nYour score: "+assignment["Grade"])                        
+                            var fractionParts1 = assignment["Grade"].split("/").map(x => parseFloat(x))
+                            var fractionParts2 = assignment2["Grade"].split("/").map(x => parseFloat(x))
+                            if(fractionParts1[0]&&fractionParts1[1]){
+                              var scoreCalc1 = fractionParts1[0]/fractionParts1[1];
+                              if(fractionParts2[0]&&fractionParts2[1]){
+                                var scoreCalc2 = fractionParts2[0]/fractionParts2[1];
+                                if(scoreCalc1>scoreCalc2){
+                                  //up
+                                  notify(targetTokens,assignment["Name"],"Score increased to "+assignment["Grade"],"Your grade for "+assignment["Name"]+" in "+classs+" went up!"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")",{});
+                                  console.log("Your grade for "+assignment["Name"]+" in "+classs+" went up!"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")")
+                                }else if(scoreCalc1<scoreCalc2){
+                                  //down
+                                  notify(targetTokens,assignment["Name"],"Score decreased to "+assignment["Grade"],"Your grade for "+assignment["Name"]+" in "+classs+" went down"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")",{});
+                                  console.log("Your grade for "+assignment["Name"]+" in "+classs+" went down"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")")
+                                }   
+                              }else{
+                                notify(targetTokens,assignment["Name"],assignment["Grade"],classs+" has posted the grade for"+assignment["Name"]+"\nYour score: "+assignment["Grade"],{});
+                                console.log(classs+" has posted the grade for"+assignment["Name"]+"\nYour score: "+assignment["Grade"])                        
+                              }
                             }
+                            
+                            found = true;
+                            break;
                           }
-                          
-                          found = true;
-                          break;
                         }
-                      }
-                      if(!found){
-                        if(assignment["Grade"]){
-                          notify(targetTokens,assignment["Name"],assignment["Grade"],classs+" has posted a new assignment: "+assignment["Name"]+"\nYour score: "+assignment["Grade"],{});
-                          console.log(classs+" has posted a new assignment: "+assignment["Name"]+"\nYour score: "+assignment["Grade"])
+                        if(!found){
+                          if(assignment["Grade"]){
+                            notify(targetTokens,assignment["Name"],assignment["Grade"],classs+" has posted a new assignment: "+assignment["Name"]+"\nYour score: "+assignment["Grade"],{});
+                            console.log(classs+" has posted a new assignment: "+assignment["Name"]+"\nYour score: "+assignment["Grade"])
+                          }
+                            
                         }
-                          
                       }
                     }
                   }
                 }
               }
             }
-            
           }else{
             console.log("No tokens")
           }
