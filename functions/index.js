@@ -513,6 +513,41 @@ exports.tokenChanged = functions.firestore
       }
     });
 
+    exports.scheduledFunctionCrontab = functions.pubsub.schedule('40 10 * * *')
+    .timeZone('America/New_York') // Users can choose timezone - default is UTC
+    .onRun((context) => {
+    //console.log(‘This will be run every day at 11:05 AM Eastern!’);
+    db.collection('userData').get()
+    .then(snapshot => {
+      snapshot.forEach(doc => {
+        if (doc.exists) {
+          if(doc.data()["Tokens"]&&doc.data()["Tokens"].length>0&&doc.data()["password"]){
+            console.log(doc.id);
+            var username = doc.id;
+            var password = doc.data()["password"];
+            const data = JSON.stringify({username:username,password:password});
+            const dataBuffer = Buffer.from(data);
+          
+            pubsub
+            .topic("updateGrades")
+            .publish(dataBuffer)
+            .then(messageId => {
+                console.log(`:::::::: Message ${messageId} has now published. :::::::::::`);
+                return true;
+            })
+            .catch(err => {
+                console.error("ERROR:", err);
+                throw err;
+            });
+          }
+        }
+      });
+    })
+    .catch(err => {
+      console.log('Error getting documents', err);
+    });
+
+  });
 exports.gradeChanged = functions.firestore
     .document('users/{userID}')
     .onWrite((change, context) => {
@@ -658,3 +693,4 @@ exports.gradeChanged = functions.firestore
       }
     })();
   }
+
