@@ -614,7 +614,7 @@ exports.gradeChanged = functions.firestore
                                 }   
                               }else{
                                 notify(targetTokens,assignment["Name"],assignment["Grade"],classs+" has posted the grade for"+assignment["Name"]+"\nYour score: "+assignment["Grade"],{});
-                                console.log(classs+" has posted the grade for"+assignment["Name"]+"\nYour score: "+assignment["Grade"])                        
+                                console.log(classs+" has posted the grade for "+assignment["Name"]+"\nYour score: "+assignment["Grade"])                        
                               }
                             }
                             
