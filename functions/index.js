@@ -514,7 +514,7 @@ exports.tokenChanged = functions.firestore
     });
 
     
-    exports.updateAllGradesSchedule = functions.pubsub.schedule('*/30 6-18 * * *') //30 min intervals from 6 am to 6pm //functions.pubsub.schedule('41 15 * * *')//functions.pubsub.schedule('20 7,14 * * *') //
+    exports.updateAllGradesSchedule = functions.pubsub.schedule('20 14 * * *') //functions.pubsub.schedule('*/30 6-18 * * *') //30 min intervals from 6 am to 6pm //functions.pubsub.schedule('41 15 * * *')//
     .timeZone('America/New_York') // Users can choose timezone - default is UTC
     .onRun((context) => {
     //console.log(‘This will be run every day at 11:05 AM Eastern!’);
