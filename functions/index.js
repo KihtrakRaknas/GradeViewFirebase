@@ -494,7 +494,7 @@ exports.gradeChanged = functions.firestore
     .onWrite((change, context) => {
       //Check if user wants notifications
       var userDataRef = db.collection('userData').doc(context.params.userID);
-      userDataRef.get().then(doc => {
+      return userDataRef.get().then(doc => {
         if (doc.exists) {
           if(doc.data()["Tokens"]&&doc.data()["Tokens"].length>0){
             var targetTokens = doc.data()["Tokens"]
