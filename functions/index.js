@@ -522,10 +522,10 @@ exports.gradeChanged = functions.firestore
                       var newAvg = document[classs][mp]["avg"].substring(0,document[classs][mp]["avg"].length-1);
                       if(Number(oldAvg)&&Number(newAvg)){
                         if(Number(oldAvg) > Number(newAvg)){
-                          notify(targetTokens,classs,"Average dropped to "+document[classs][mp]["avg"],"Your average for "+classs+" when down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{});
+                          notify(targetTokens,classs,"Average dropped to "+document[classs][mp]["avg"],"Your average for "+classs+" when down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{txt:"Your average for "+classs+" when down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"]});
                           console.log("Your average for "+classs+" when down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
                         }else if(Number(oldAvg) < Number(newAvg)){
-                          notify(targetTokens,classs,"Average jumped to "+document[classs][mp]["avg"],"Your average for "+classs+" when up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{});
+                          notify(targetTokens,classs,"Average jumped to "+document[classs][mp]["avg"],"Your average for "+classs+" when up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{txt:"Your average for "+classs+" when up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"]});
                           console.log("Your average for "+classs+" when up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
                         }else{
                           //No change
@@ -549,15 +549,15 @@ exports.gradeChanged = functions.firestore
                                 var scoreCalc2 = fractionParts2[0]/fractionParts2[1];
                                 if(scoreCalc1>scoreCalc2){
                                   //up
-                                  notify(targetTokens,assignment["Name"],"Score increased to "+assignment["Grade"],"Your grade for "+assignment["Name"]+" in "+classs+" went up!"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")",{});
+                                  notify(targetTokens,assignment["Name"],"Score increased to "+assignment["Grade"],"Your grade for "+assignment["Name"]+" in "+classs+" went up!"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")",{txt:"Your grade for "+assignment["Name"]+" in "+classs+" went up from "+assignment2["Grade"]+" to "+assignment["Grade"]});
                                   console.log("Your grade for "+assignment["Name"]+" in "+classs+" went up!"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")")
                                 }else if(scoreCalc1<scoreCalc2){
                                   //down
-                                  notify(targetTokens,assignment["Name"],"Score decreased to "+assignment["Grade"],"Your grade for "+assignment["Name"]+" in "+classs+" went down"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")",{});
+                                  notify(targetTokens,assignment["Name"],"Score decreased to "+assignment["Grade"],"Your grade for "+assignment["Name"]+" in "+classs+" went down"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")",{txt:"Your grade for "+assignment["Name"]+" in "+classs+" went down from "+assignment2["Grade"]+" to "+assignment["Grade"]+")"});
                                   console.log("Your grade for "+assignment["Name"]+" in "+classs+" went down"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")")
                                 }   
                               }else{
-                                notify(targetTokens,assignment["Name"],assignment["Grade"],classs+" has posted the grade for"+assignment["Name"]+"\nYour score: "+assignment["Grade"],{});
+                                notify(targetTokens,assignment["Name"],assignment["Grade"],classs+" has posted the grade for "+assignment["Name"]+"\nYour score: "+assignment["Grade"],{txt:classs+" has posted the grade for "+assignment["Name"]+" and got "+assignment["Grade"]});
                                 console.log(classs+" has posted the grade for "+assignment["Name"]+"\nYour score: "+assignment["Grade"])                        
                               }
                             }
@@ -568,7 +568,7 @@ exports.gradeChanged = functions.firestore
                         }
                         if(!found){
                           if(assignment["Grade"]){
-                            notify(targetTokens,assignment["Name"],assignment["Grade"],classs+" has posted a new assignment: "+assignment["Name"]+"\nYour score: "+assignment["Grade"],{});
+                            notify(targetTokens,assignment["Name"],assignment["Grade"],classs+" has posted a new assignment: "+assignment["Name"]+"\nYour score: "+assignment["Grade"],{txt: classs+" has posted a new assignment called "+assignment["Name"]+" and you got "+assignment["Grade"]});
                             console.log(classs+" has posted a new assignment: "+assignment["Name"]+"\nYour score: "+assignment["Grade"])
                           }
                             
