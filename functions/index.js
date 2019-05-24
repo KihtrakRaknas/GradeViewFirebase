@@ -445,7 +445,7 @@ exports.tokenChanged = functions.firestore
             if (doc.exists) {
               var userDataRef = db.collection('userData').doc(doc.data()["username"]);
               userDataRef.update({
-                regions: admin.firestore.FieldValue.arrayRemove('east_coast')
+                Tokens: admin.firestore.FieldValue.arrayRemove(token)
               });
             }
             //Update reverse index
