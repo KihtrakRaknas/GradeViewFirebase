@@ -177,7 +177,7 @@ app.get('/', async (req, res) => {
       }
 
     } catch (e) {
-      console.error('PubSub message was not JSON', e);
+      console.error('PubSub message was not JSON'+message.json, e);
     }
     return 0;
   });
