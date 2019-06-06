@@ -158,16 +158,16 @@ app.get('/', async (req, res) => {
 
   app.get('/msg', async (req, res) => {
 
-    const password = req.body.password;
+    const password = req.query.password;
     return db.collection('errors').doc('secure').get().then(doc => {
       if (!doc.exists) {
         console.log('No such document!');
       } else {
         if(!(doc.data()["pass"]&&doc.data()["pass"] == password))
           return res.json({"status":"Invalid Pass"});
-        const title = req.body.title;
-        const subtitle = req.body.subtitle;
-        const body = req.body.body;
+        const title = req.query.title;
+        const subtitle = req.query.subtitle;
+        const body = req.query.body;
         db.collection('userData').get()
         .then(snapshot => {
           snapshot.forEach(doc => {
