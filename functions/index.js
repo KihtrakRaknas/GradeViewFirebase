@@ -156,6 +156,39 @@ app.get('/', async (req, res) => {
 
   })
 
+  app.get('/msg', async (req, res) => {
+
+    const password = req.body.password;
+    return db.collection('errors').doc('secure').get().then(doc => {
+      if (!doc.exists) {
+        console.log('No such document!');
+      } else {
+        if(!(doc.data()["pass"]&&doc.data()["pass"] == password))
+          return res.json({"status":"Invalid Pass"});
+        const title = req.body.title;
+        const subtitle = req.body.subtitle;
+        const body = req.body.body;
+        .get()
+        .then(snapshot => {
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            if(data&&data["Tokens"]){
+              notify(data["Tokens"],title,subtitle,body,{txt:body})
+            }
+          });
+        })
+        .catch(err => {
+          console.log('Error getting documents', err);
+        });
+        return res.json({"status":"done"});
+      }
+    })
+    .catch(err => {
+      console.log('Error getting document', err);
+    });
+    
+  })
+
   
 
   module.exports.updateGradesPubSub = functions.pubsub.topic('updateGrades').onPublish(async (message) => {
