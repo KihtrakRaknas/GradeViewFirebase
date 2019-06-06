@@ -168,7 +168,7 @@ app.get('/', async (req, res) => {
         const title = req.body.title;
         const subtitle = req.body.subtitle;
         const body = req.body.body;
-        .get()
+        db.collection('userData').get()
         .then(snapshot => {
           snapshot.forEach(doc => {
             const data = doc.data();
