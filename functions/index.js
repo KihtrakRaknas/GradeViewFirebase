@@ -548,11 +548,11 @@ exports.gradeChanged = functions.firestore
                       var newAvg = document[classs][mp]["avg"].substring(0,document[classs][mp]["avg"].length-1);
                       if(Number(oldAvg)&&Number(newAvg)){
                         if(Number(oldAvg) > Number(newAvg)){
-                          notify(targetTokens,classs,"Average dropped to "+document[classs][mp]["avg"],"Your average for "+classs+" when down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{txt:"Your average for "+classs+" when down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"]});
-                          console.log("Your average for "+classs+" when down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
+                          notify(targetTokens,classs,"Average dropped to "+document[classs][mp]["avg"],"Your average for "+classs+" went down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{txt:"Your average for "+classs+" went down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"]});
+                          console.log("Your average for "+classs+" went down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
                         }else if(Number(oldAvg) < Number(newAvg)){
-                          notify(targetTokens,classs,"Average jumped to "+document[classs][mp]["avg"],"Your average for "+classs+" when up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{txt:"Your average for "+classs+" when up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"]});
-                          console.log("Your average for "+classs+" when up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
+                          notify(targetTokens,classs,"Average jumped to "+document[classs][mp]["avg"],"Your average for "+classs+" went up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{txt:"Your average for "+classs+" went up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"]});
+                          console.log("Your average for "+classs+" went up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
                         }else{
                           //No change
                         }
