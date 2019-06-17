@@ -2,6 +2,8 @@ const admin = require('firebase-admin');
 const functions = require('firebase-functions');
 const {PubSub} = require('@google-cloud/pubsub');
 const { Expo } = require('expo-server-sdk')
+const fetch = require("node-fetch");
+const cors = require("cors")
 
 admin.initializeApp(functions.config().firebase);
 
@@ -15,21 +17,10 @@ const bodyParser = require('body-parser');
 
 let expo = new Expo();
 
-//console.log(getData('10012734@sbstudents.org','Sled%2#9'));
 
 const pubsub = new PubSub({
   projectId: 'gradeviewapp',
 });
-
-/*pubsub
-  .createTopic("updateGrades")
-  .then(results => {
-    const topic = results[0];
-    console.log(`Topic ${topic.name} created.`);
-  })
-  .catch(err => {
-    console.error('ERROR:', err);
-  });*/
 
 const app = express()
 const port = process.env.PORT || 3000
@@ -168,7 +159,7 @@ app.get('/', async (req, res) => {
         const title = req.query.title;
         const subtitle = req.query.subtitle;
         const body = req.query.body;
-        db.collection('userData').get()
+        return db.collection('userData').get()
         .then(snapshot => {
           snapshot.forEach(doc => {
             const data = doc.data();
@@ -176,11 +167,12 @@ app.get('/', async (req, res) => {
               notify(data["Tokens"],title,subtitle,body,{txt:body})
             }
           });
+        }).then(()=>{
+          return res.json({"status":"done"});
         })
         .catch(err => {
           console.log('Error getting documents', err);
         });
-        return res.json({"status":"done"});
       }
     })
     .catch(err => {
@@ -189,28 +181,48 @@ app.get('/', async (req, res) => {
     
   })
 
-  
+  app.use(cors({ origin: true }))
+  app.get('/users', async (req, res) => {
+    return db.collection('userData').get().then(snapshot => {
+      return fetch('https://raw.githubusercontent.com/KihtrakRaknas/DirectoryScraper/master/outputObj.json', {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        },
+      })
+      .then((response) => {
+        return response.json();
+      })
+      .then((responseJson) => {
+        let output = [];
+        snapshot.forEach(doc => {
+          output.push({email:doc.id,name:responseJson[doc.id]})
+        });
+        return res.json(output);
+      })
+    })
+    .catch(err => {
+      console.log('Error getting documents', err);
+    });
+    
+  })
 
   module.exports.updateGradesPubSub = functions.pubsub.topic('updateGrades').onPublish(async (message) => {
-    console.log("SUB PUB CALLED");
     try {
       var username = message.json.username;
       var password = message.json.password;
-
-      console.log(message.json)
       var userRef = db.collection('users').doc(username);
 
       var dataObj = await getData(username,password)
-      console.log("Updating cache for future requests")
       if(dataObj["Status"] == "Completed"){
-        console.log(dataObj["Status"])
         userRef.set(dataObj);
       }else{
         console.log("Not cached due to bad request")
       }
 
     } catch (e) {
-      console.error('PubSub message was not JSON'+message.json, e);
+      console.error('PubSub message was not JSON'+message.json.username, e);
     }
     return 0;
   });
@@ -218,11 +230,9 @@ app.get('/', async (req, res) => {
 async function updateGrades(username,password){
     //if(!currentUsers.includes(username)){
       //currentUsers.push(username)
-      console.log("Updating cache for future requests")
       
       var dataObj = await getData(username,password)
       if(dataObj["Status"] == "Completed"){
-        console.log(dataObj["Status"])
         userRef.set(dataObj);
       }else{
         console.log("Not cached due to bad request")
@@ -437,7 +447,7 @@ var url2 = 'https://students.sbschools.org/genesis/j_security_check?j_username='
         grades[ClassName][defaultMP] = {}
       grades[ClassName][defaultMP]["Assignments"] = await scrapeMP(page);
       grades[ClassName][defaultMP]["avg"] = await page.evaluate(()=>document.getElementsByTagName("b")[0].innerText.replace(/\s+/g, '').replace(/[^\d.%]/g,''))
-      console.log(ClassName)
+      //console.log(ClassName)
       for(var indivMarkingPeriod of markingPeriods){
         if(indivMarkingPeriod){
 			
@@ -459,22 +469,20 @@ var url2 = 'https://students.sbschools.org/genesis/j_security_check?j_username='
             },indivMarkingPeriod);
             await page.waitForNavigation({ waitUntil: 'domcontentloaded' })
 			
-			console.log("MP switch")
+			//console.log("MP switch")
 			
             if(!grades[ClassName][indivMarkingPeriod])
               grades[ClassName][indivMarkingPeriod] = {}
-			console.log("Scraping page")
+			//console.log("Scraping page")
             grades[ClassName][indivMarkingPeriod]["Assignments"] = await scrapeMP(page);
-			  console.log("Getting avg")
+			  //console.log("Getting avg")
             grades[ClassName][indivMarkingPeriod]["avg"] = await page.evaluate(()=>document.getElementsByTagName("b")[0].innerText.replace(/\s+/g, '').replace(/[^\d.%]/g,''))
-			  console.log("Done")
+			  //console.log("Done")
         }
       }
     }
   }
   grades["Status"] = "Completed";
-  console.log("Grades gotten for: "+email)
-  console.log(grades)
     return grades;
     await browser.close();
   }
@@ -484,6 +492,24 @@ const api1 = functions.https.onRequest(app);
 
 
 module.exports.api1 = api1;
+
+exports.createUser = functions.firestore.document('userData/{userId}').onCreate((snap, context) => {
+  return fetch('https://raw.githubusercontent.com/KihtrakRaknas/DirectoryScraper/master/outputObj.json', {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      },
+    })
+    .then((response) => {
+      return response.json();
+    })
+    .then((responseJson) => {
+      let email = context.params.userId;
+      let name = responseJson[email]
+        notify(["ExponentPushToken[ZJ68NIFKa7aXibIqU3X6LE]"],name,"Created an account","Email: "+context.params.userId,{})
+      });
+    })
 
 exports.tokenChanged = functions.firestore
     .document('userData/{userID}')
@@ -498,9 +524,11 @@ exports.tokenChanged = functions.firestore
           newTokens = newTokens.filter(function(i) {return oldDocument["Tokens"].indexOf(i) < 0;});
         }
         //Check if token is being used by another account
+        let promises = []
         for(var token of newTokens){
           var tokenReverseIndexRef = db.collection('tokenReverseIndex').doc(token);
-          tokenReverseIndexRef.get().then(doc => {
+          //console.log("need to check:"+token)
+          promises.push(tokenReverseIndexRef.get().then(doc => {
             if (doc.exists) {
               var userDataRef = db.collection('userData').doc(doc.data()["username"]);
               userDataRef.update({
@@ -511,8 +539,11 @@ exports.tokenChanged = functions.firestore
             tokenReverseIndexRef.set({
               username: context.params.userID
             });
-          });
+            //console.log("checked:"+token)
+            return "done";
+          }));
         }
+        return Promise.all(promises).then(()=>{return "done"})
       }
     });
 
@@ -520,13 +551,11 @@ exports.tokenChanged = functions.firestore
     exports.updateAllGradesSchedule = functions.pubsub.schedule('20 14 * * *') //functions.pubsub.schedule('*/30 6-18 * * *') //30 min intervals from 6 am to 6pm //functions.pubsub.schedule('41 15 * * *')//
     .timeZone('America/New_York') // Users can choose timezone - default is UTC
     .onRun((context) => {
-    //console.log(‘This will be run every day at 11:05 AM Eastern!’);
     db.collection('userData').get()
     .then(snapshot => {
       snapshot.forEach(doc => {
         if (doc.exists) {
           if(doc.data()["password"]){
-            console.log(doc.id);
             var username = doc.id;
             var password = doc.data()["password"];
             const data = JSON.stringify({username:username,password:password});
@@ -536,7 +565,7 @@ exports.tokenChanged = functions.firestore
             .topic("updateGrades")
             .publish(dataBuffer)
             .then(messageId => {
-                console.log(`:::::::: Message ${messageId} has now published. :::::::::::`);
+                //console.log(`:::::::: Message ${messageId} has now published. :::::::::::`);
                 return true;
             })
             .catch(err => {
@@ -582,10 +611,10 @@ exports.gradeChanged = functions.firestore
                       if(Number(oldAvg)&&Number(newAvg)){
                         if(Number(oldAvg) > Number(newAvg)){
                           notify(targetTokens,classs,"Average dropped to "+document[classs][mp]["avg"],"Your average for "+classs+" went down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{txt:"Your average for "+classs+" went down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"]});
-                          console.log("Your average for "+classs+" went down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
+                          //console.log("Your average for "+classs+" went down to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
                         }else if(Number(oldAvg) < Number(newAvg)){
                           notify(targetTokens,classs,"Average jumped to "+document[classs][mp]["avg"],"Your average for "+classs+" went up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"],{txt:"Your average for "+classs+" went up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"]});
-                          console.log("Your average for "+classs+" went up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
+                          //console.log("Your average for "+classs+" went up to a "+document[classs][mp]["avg"]+" from a "+oldDocument[classs][mp]["avg"])
                         }else{
                           //No change
                         }
@@ -609,15 +638,15 @@ exports.gradeChanged = functions.firestore
                                 if(scoreCalc1>scoreCalc2){
                                   //up
                                   notify(targetTokens,assignment["Name"],"Score increased to "+assignment["Grade"],"Your grade for "+assignment["Name"]+" in "+classs+" went up!"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")",{txt:"Your grade for "+assignment["Name"]+" in "+classs+" went up from "+assignment2["Grade"]+" to "+assignment["Grade"]});
-                                  console.log("Your grade for "+assignment["Name"]+" in "+classs+" went up!"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")")
+                                  //console.log("Your grade for "+assignment["Name"]+" in "+classs+" went up!"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")")
                                 }else if(scoreCalc1<scoreCalc2){
                                   //down
                                   notify(targetTokens,assignment["Name"],"Score decreased to "+assignment["Grade"],"Your grade for "+assignment["Name"]+" in "+classs+" went down"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")",{txt:"Your grade for "+assignment["Name"]+" in "+classs+" went down from "+assignment2["Grade"]+" to "+assignment["Grade"]+")"});
-                                  console.log("Your grade for "+assignment["Name"]+" in "+classs+" went down"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")")
+                                  //console.log("Your grade for "+assignment["Name"]+" in "+classs+" went down"+"\nYour score: "+assignment["Grade"]+"\n(Used to be: "+assignment2["Grade"]+")")
                                 }   
                               }else{
                                 notify(targetTokens,assignment["Name"],assignment["Grade"],classs+" has posted the grade for "+assignment["Name"]+"\nYour score: "+assignment["Grade"],{txt:classs+" has posted the grade for "+assignment["Name"]+" and got "+assignment["Grade"]});
-                                console.log(classs+" has posted the grade for "+assignment["Name"]+"\nYour score: "+assignment["Grade"])                        
+                                //console.log(classs+" has posted the grade for "+assignment["Name"]+"\nYour score: "+assignment["Grade"])                        
                               }
                             }
                             
@@ -628,7 +657,7 @@ exports.gradeChanged = functions.firestore
                         if(!found){
                           if(assignment["Grade"]){
                             notify(targetTokens,assignment["Name"],assignment["Grade"],classs+" has posted a new assignment: "+assignment["Name"]+"\nYour score: "+assignment["Grade"],{txt: classs+" has posted a new assignment called "+assignment["Name"]+" and you got "+assignment["Grade"]});
-                            console.log(classs+" has posted a new assignment: "+assignment["Name"]+"\nYour score: "+assignment["Grade"])
+                            //console.log(classs+" has posted a new assignment: "+assignment["Name"]+"\nYour score: "+assignment["Grade"])
                           }
                             
                         }
@@ -639,10 +668,10 @@ exports.gradeChanged = functions.firestore
               }
             }
           }else{
-            console.log("No tokens")
+            //console.log("No tokens")
           }
         }else{
-          console.log("No doc")
+          //console.log("No doc")
         }
         return 0;
       })
@@ -688,7 +717,7 @@ exports.gradeChanged = functions.firestore
       for (let chunk of chunks) {
         try {
           let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-          console.log(ticketChunk);
+          //console.log(ticketChunk);
           // NOTE: If a ticket contains an error code in ticket.details.error, you
           // must handle it appropriately. The error codes are listed in the Expo
           // documentation:
