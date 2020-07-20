@@ -1,0 +1,8 @@
+{
+  "firebase": {
+    "projectId": "gradeviewapp",
+    "databaseURL": "https://gradeviewapp.firebaseio.com",
+    "storageBucket": "gradeviewapp.appspot.com",
+    "cloudResourceLocation": "us-central"
+  }
+}
